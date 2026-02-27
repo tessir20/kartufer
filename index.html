@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Game Kartu</title>
+
+<style>
+html,body{
+    background:transparent;
+    height:100vh;
+    margin:0;
+    font-family:sans-serif;
+    overflow:hidden;
+}
+
+/* VIDEO 16:9 */
+#bgVideo{
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%, -50%);
+    width:90vw;
+    max-width:1000px;
+    aspect-ratio:16/9;
+    height:auto;
+    object-fit:contain;
+    z-index:-1;
+    filter:brightness(0.5);
+}
+
+/* KARTU DI TENGAH */
+.container{
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%, -55%);
+    display:grid;
+    grid-template-columns:repeat(4, 80px);
+    gap:20px;
+    z-index:10;
+}
+
+/* TOMBOL */
+.controls{
+    position:fixed;
+    bottom:20px;
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+    z-index:20;
+}
+
+/* KARTU */
+.kartu{
+    width:80px;
+    height:80px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    border-radius:12px;
+    cursor:pointer;
+    overflow:hidden;
+    position:relative;
+    transition:0.3s;
+}
+
+/* GLOW */
+.reguler .kartu{
+    box-shadow:0 0 10px #00ff00, 0 0 20px #00ff00;
+}
+.vip .kartu{
+    box-shadow:0 0 10px red, 0 0 20px red;
+}
+
+/* ANIMASI MASUK */
+@keyframes jatuh {
+    0%{ transform:translateY(-300px); opacity:0; }
+    100%{ transform:translateY(0); opacity:1; }
+}
+.jatuh{
+    animation:jatuh 0.6s cubic-bezier(.2,1.5,.5,1) forwards;
+}
+
+/* ANIMASI HILANG */
+@keyframes hilang {
+    0%{ transform:translateY(0); opacity:1; }
+    100%{ transform:translateY(100px); opacity:0; }
+}
+.hilang{
+    animation:hilang 0.5s ease forwards;
+}
+
+/* SHAKE */
+@keyframes shake {
+    0%{transform:translate(0,0);}
+    25%{transform:translate(-4px,3px);}
+    50%{transform:translate(4px,-3px);}
+    75%{transform:translate(-4px,3px);}
+    100%{transform:translate(0,0);}
+}
+.shake{
+    animation:shake 0.1s infinite;
+}
+
+.kartu img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+}
+
+.nomor{
+    position:absolute;
+    font-size:24px;
+    font-weight:bold;
+    color:white;
+}
+
+/* BUTTON */
+button{
+    padding:10px 20px;
+    border:none;
+    border-radius:10px;
+    font-size:14px;
+    cursor:pointer;
+}
+
+/* TONGKAT */
+#tongkat{
+    position:fixed;
+    width:100px;
+    height:100px;
+    top:80%;
+    left:50%;
+    transform:translate(-50%, -50%);
+    z-index:999;
+    cursor:grab;
+}
+</style>
+</head>
+
+<body class="reguler">
+
+<video autoplay muted loop id="bgVideo">
+    <source src="hd.mp4" type="video/mp4">
+</video>
+
+<div class="container" id="container"></div>
+
+<img src="tongkat.png" id="tongkat">
+
+<div class="controls">
+    <button onclick="resetGame()">Reset</button>
+    <button onclick="bukaSemua()">Buka Semua</button>
+    <button onclick="togglePower()" id="powerBtn">POWER ON</button>
+    <button onclick="setMode('vip')">VIP MODE</button>
+    <button onclick="setMode('reguler')">REGULER</button>
+</div>
+
+<script>
+const container = document.getElementById("container");
+
+/* AUDIO */
+const soundJP = new Audio("jp.mp3");
+const soundMitos = new Audio("mitos1.mp3");
+
+let powerOn = true;
+let mode = "reguler";
+
+let hadiahReguler = [
+"megalodon.png","kraken.png","3tb.png","love.png",
+"el_maja.png","worm.png","kinkjeli.png","elpirate.png",
+"bone.png","grate.png","kink.png","el_retro.png"
+];
+
+let hadiahVIP = [
+"cursed.png","loknes.png","retro.png","lele.png",
+"love.png","magma.png","pelangi.png","5tb.png",
+"10tb.png","elpirate.png","megajeruk.png","hiu1x1.png"
+];
+
+let kartuData = [];
+let klik = 0;
+
+/* MODE */
+function setMode(m){
+    if(!powerOn) return;
+    mode = m;
+    document.body.classList.remove("vip","reguler");
+    document.body.classList.add(m);
+    resetGame();
+}
+
+/* POWER */
+function togglePower(){
+    powerOn = !powerOn;
+    let btn = document.getElementById("powerBtn");
+
+    if(powerOn){
+        btn.innerText = "POWER ON";
+        init();
+    }else{
+        btn.innerText = "POWER OFF";
+
+        document.querySelectorAll(".kartu").forEach((k,i)=>{
+            setTimeout(()=>{
+                k.classList.remove("jatuh");
+                k.classList.add("hilang");
+            }, i*50);
+        });
+
+        soundJP.pause();
+        soundMitos.pause();
+    }
+}
+
+/* INIT GAME */
+function init(){
+    container.innerHTML = "";
+    klik = 0;
+
+    let hadiahList = (mode==="vip") ? hadiahVIP : hadiahReguler;
+    kartuData = [...hadiahList].sort(()=>Math.random()-0.5);
+
+    for(let i=0;i<12;i++){
+        let div = document.createElement("div");
+        div.className = "kartu";
+        div.dataset.index = i;
+
+        let img = document.createElement("img");
+        img.src = "o.png";
+
+        let nomor = document.createElement("div");
+        nomor.className = "nomor";
+        nomor.innerText = i+1;
+
+        div.appendChild(img);
+        div.appendChild(nomor);
+        div.onclick = ()=>bukaKartu(div);
+
+        container.appendChild(div);
+
+        setTimeout(()=>{
+            div.classList.add("jatuh");
+        }, i*80);
+    }
+}
+
+/* BUKA KARTU */
+function bukaKartu(div){
+    if(!powerOn) return;
+
+    let i = div.dataset.index;
+    let img = div.querySelector("img");
+    let nomor = div.querySelector(".nomor");
+
+    if(!img.src.includes("o.png")) return;
+
+    klik++;
+    let hadiah = kartuData[i];
+
+    /* ANTI JP DI AWAL */
+    if(klik === 1 && (hadiah === "love.png" || hadiah === "lele.png")){
+        let indexLain;
+        do{
+            indexLain = Math.floor(Math.random()*kartuData.length);
+        }while((kartuData[indexLain] === "love.png" || kartuData[indexLain] === "lele.png") || indexLain == i);
+
+        [kartuData[i], kartuData[indexLain]] = [kartuData[indexLain], kartuData[i]];
+        hadiah = kartuData[i];
+    }
+
+    div.classList.add("shake");
+
+    setTimeout(()=>{
+        div.classList.remove("shake");
+
+        img.src = hadiah;
+        nomor.style.display="none";
+
+        if(hadiah === "love.png" || hadiah === "lele.png"){
+            soundJP.currentTime = 0;
+            soundJP.play();
+        }else{
+            soundMitos.currentTime = 0;
+            soundMitos.play();
+        }
+
+    },300);
+}
+
+/* BUKA SEMUA */
+function bukaSemua(){
+    if(!powerOn) return;
+
+    document.querySelectorAll(".kartu").forEach((kartu,i)=>{
+        setTimeout(()=>{
+            let img = kartu.querySelector("img");
+            let nomor = kartu.querySelector(".nomor");
+
+            if(img.src.includes("o.png")){
+                img.src = kartuData[i];
+                nomor.style.display="none";
+            }
+        },i*80);
+    });
+}
+
+/* RESET */
+function resetGame(){
+    if(!powerOn) return;
+
+    document.querySelectorAll(".kartu").forEach((k,i)=>{
+        setTimeout(()=>{
+            k.classList.remove("jatuh");
+            k.classList.add("hilang");
+        }, i*50);
+    });
+
+    setTimeout(()=>{
+        init();
+    },400);
+}
+
+/* DRAG TONGKAT */
+const tongkat = document.getElementById("tongkat");
+let isDrag=false;
+
+tongkat.addEventListener("mousedown",()=>isDrag=true);
+document.addEventListener("mouseup",()=>isDrag=false);
+document.addEventListener("mousemove",e=>{
+    if(!isDrag) return;
+    tongkat.style.left=e.clientX+"px";
+    tongkat.style.top=e.clientY+"px";
+});
+
+tongkat.addEventListener("touchstart",()=>isDrag=true);
+document.addEventListener("touchend",()=>isDrag=false);
+document.addEventListener("touchmove",e=>{
+    if(!isDrag) return;
+    let t=e.touches[0];
+    tongkat.style.left=t.clientX+"px";
+    tongkat.style.top=t.clientY+"px";
+});
+
+/* START */
+init();
+</script>
+
+</body>
+</html>
